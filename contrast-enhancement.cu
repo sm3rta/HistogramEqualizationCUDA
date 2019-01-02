@@ -46,21 +46,18 @@ PGM_IMG contrast_enhancement_g_gpu(PGM_IMG h_img_in)
     cudaMemcpy(d_img_in,    h_img_in.img,   img_size,        cudaMemcpyHostToDevice);
     cudaMemcpy(d_hist,      h_hist,         256*sizeof(int), cudaMemcpyHostToDevice);
 
-    unsigned char* d_img_in_img;
-    cudaMalloc()
+
     start = std::chrono::system_clock::now();
 
-    int no_blocks = h_img_in.w*h_img_in.h/256+1;
+    int no_blocks = h_img_in.w*h_img_in.h/1024+1;
 
-    histogram_gpu<<<no_blocks, 256>>>(d_hist, d_img_in, h_img_in.h * h_img_in.w, 256);
+    histogram_gpu<<<no_blocks, 1024>>>(d_hist, d_img_in, result.w * result.h, 256);
     
     end = std::chrono::system_clock::now();
     elapsed_seconds += end-start;
 
     cudaMemcpy(h_hist, d_hist, 256*sizeof(int), cudaMemcpyDeviceToHost);
 
-    for (int i=0;i<256;i++) std::cout<<h_hist[i]<<"\t";
-    std::cout<<std::endl;
 
     elapsed_seconds += histogram_equalization_gpu(result.img, h_img_in.img, h_hist, result.w*result.h, 256);
     std::cout<<"Test took "<<elapsed_seconds.count()<<" seconds, w/o memory copy"<<std::endl;
@@ -131,7 +128,7 @@ PPM_IMG contrast_enhancement_c_hsl(PPM_IMG img_in)
     histogram_equalization(l_equ, hsl_med.l,hist,hsl_med.width*hsl_med.height, 256);
     
     free(hsl_med.l);
-    
+    hsl_med.l = l_equ;
 
     result = hsl2rgb(hsl_med);
     free(hsl_med.h);
@@ -142,7 +139,6 @@ PPM_IMG contrast_enhancement_c_hsl(PPM_IMG img_in)
 
 PPM_IMG contrast_enhancement_c_yuv_gpu(PPM_IMG img_in)
 {
-    auto start = std::chrono::system_clock::now();
     YUV_IMG yuv_med;
     PPM_IMG result;
     
@@ -152,9 +148,7 @@ PPM_IMG contrast_enhancement_c_yuv_gpu(PPM_IMG img_in)
     yuv_med = rgb2yuv(img_in);
     y_equ = (unsigned char *)malloc(yuv_med.h*yuv_med.w*sizeof(unsigned char));
     
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-
+    
     int img_size = yuv_med.h*yuv_med.w*sizeof(unsigned char);
 
     unsigned char * d_yuv_med_y;
@@ -166,20 +160,14 @@ PPM_IMG contrast_enhancement_c_yuv_gpu(PPM_IMG img_in)
     cudaMemcpy(d_yuv_med_y, yuv_med.img_y, img_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_hist, h_hist, 256*sizeof(int), cudaMemcpyHostToDevice);
     
-    start = std::chrono::system_clock::now();
+    int no_blocks = yuv_med.w*yuv_med.h/1024+1;
 
-    int no_blocks = yuv_med.w*yuv_med.h/1024;
-
-
-    histogram_gpu<<<no_blocks, 1024>>>(h_hist, d_yuv_med_y, yuv_med.h * yuv_med.w, 256);
+    histogram_gpu<<<no_blocks, 1, 256>>>(d_hist, d_yuv_med_y, yuv_med.h*yuv_med.w, 256);
     
-    end = std::chrono::system_clock::now();
-    elapsed_seconds += end-start;
     cudaMemcpy(h_hist, d_hist, 256*sizeof(int), cudaMemcpyDeviceToHost);
 
-    elapsed_seconds += histogram_equalization_gpu(y_equ,yuv_med.img_y,h_hist,yuv_med.h * yuv_med.w, 256);
+    histogram_equalization_gpu(y_equ,yuv_med.img_y,h_hist,yuv_med.h * yuv_med.w, 256);
 
-    start = std::chrono::system_clock::now();
     free(yuv_med.img_y);
     yuv_med.img_y = y_equ;
     
@@ -188,34 +176,44 @@ PPM_IMG contrast_enhancement_c_yuv_gpu(PPM_IMG img_in)
     free(yuv_med.img_u);
     free(yuv_med.img_v);
 
-    end = std::chrono::system_clock::now();
-    elapsed_seconds+= end-start;
-    std::cout<<"Test took "<<elapsed_seconds.count()<<" seconds, w/o memory copy"<<std::endl;
-
     return result;
 }
 
 PPM_IMG contrast_enhancement_c_hsl_gpu(PPM_IMG img_in)
 {
-    HSL_IMG hsl_med;
+     HSL_IMG hsl_med;
     PPM_IMG result;
-    
     unsigned char * l_equ;
-    int hist[256];
-
+    int h_hist[256];
     hsl_med = rgb2hsl(img_in);
     l_equ = (unsigned char *)malloc(hsl_med.height*hsl_med.width*sizeof(unsigned char));
 
-    histogram(hist, hsl_med.l, hsl_med.height * hsl_med.width, 256);
-    histogram_equalization(l_equ, hsl_med.l,hist,hsl_med.width*hsl_med.height, 256);
+    int img_size = hsl_med.height*hsl_med.width*sizeof(unsigned char);
+
+    unsigned char * d_hsl_med_l;
+    int * d_hist;
+
+    cudaMalloc((void **) &d_hsl_med_l, img_size);
+    cudaMalloc((void **) &d_hist, 256 * sizeof(int));
+    
+    cudaMemcpy(d_hsl_med_l, hsl_med.l, img_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_hist, h_hist, 256*sizeof(int), cudaMemcpyHostToDevice);
+    
+    int no_blocks = hsl_med.height*hsl_med.width/1024+1;
+    histogram_gpu<<<hsl_med.height*hsl_med.width, 1024>>>(d_hist, d_hsl_med_l, hsl_med.height * hsl_med.width, 256);
+    
+    cudaMemcpy(h_hist, d_hist, 256*sizeof(int), cudaMemcpyDeviceToHost);
+
+    histogram_equalization_gpu(l_equ, hsl_med.l,h_hist,hsl_med.width*hsl_med.height, 256);
     
     free(hsl_med.l);
-    
+    hsl_med.l = l_equ;
 
     result = hsl2rgb(hsl_med);
     free(hsl_med.h);
     free(hsl_med.s);
     free(hsl_med.l);
+    
     return result;
 }
 
@@ -232,9 +230,10 @@ HSL_IMG rgb2hsl(PPM_IMG img_in)
     img_out.h = (float *)malloc(img_in.w * img_in.h * sizeof(float));
     img_out.s = (float *)malloc(img_in.w * img_in.h * sizeof(float));
     img_out.l = (unsigned char *)malloc(img_in.w * img_in.h * sizeof(unsigned char));
+
     
+
     for(i = 0; i < img_in.w*img_in.h; i ++){
-        
         float var_r = ( (float)img_in.img_r[i]/255 );//Convert RGB to [0,1]
         float var_g = ( (float)img_in.img_g[i]/255 );
         float var_b = ( (float)img_in.img_b[i]/255 );
@@ -268,12 +267,10 @@ HSL_IMG rgb2hsl(PPM_IMG img_in)
                     H = (1.0/3.0) + del_r - del_b;
                 }
                 else{
-                        H = (2.0/3.0) + del_g - del_r;
+                    H = (2.0/3.0) + del_g - del_r;
                 }   
-            }
-            
+            }  
         }
-        
         if ( H < 0 )
             H += 1;
         if ( H > 1 )
@@ -283,7 +280,6 @@ HSL_IMG rgb2hsl(PPM_IMG img_in)
         img_out.s[i] = S;
         img_out.l[i] = (unsigned char)(L*255);
     }
-    
     return img_out;
 }
 

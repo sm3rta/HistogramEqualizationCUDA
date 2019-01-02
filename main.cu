@@ -26,13 +26,13 @@ int main(){
     
     printf("Running contrast enhancement for gray-scale images.\n");
     img_ibuf_g = read_pgm("in.pgm");
-    run_cpu_gray_test(img_ibuf_g);
+    //run_cpu_gray_test(img_ibuf_g);
     run_gpu_gray_test(img_ibuf_g);
     free_pgm(img_ibuf_g);
     
     printf("Running contrast enhancement for color images.\n");
     img_ibuf_c = read_ppm("in.ppm");
-    run_cpu_color_test(img_ibuf_c);
+    //run_cpu_color_test(img_ibuf_c);
     run_gpu_color_test(img_ibuf_c);
     free_ppm(img_ibuf_c);
     
@@ -41,22 +41,22 @@ int main(){
 
 void run_gpu_color_test(PPM_IMG img_in)
 {
-    printf("Starting GPU color test... but actually not\n");
+    printf("Starting GPU color test...\n");
     PPM_IMG img_obuf_hsl, img_obuf_yuv;
     
     auto start = std::chrono::system_clock::now();
     img_obuf_hsl = contrast_enhancement_c_hsl_gpu(img_in);
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout<<"HSL Test took "<<elapsed_seconds.count()<<" seconds"<<std::endl;
-    write_ppm(img_obuf_hsl, "out_hsl_cpu.ppm");
+    std::cout<<"HSL Test took "<<elapsed_seconds.count()<<" seconds, including memory copy"<<std::endl;
+    write_ppm(img_obuf_hsl, "out_hsl_gpu.ppm");
 
     start = std::chrono::system_clock::now();
     img_obuf_yuv = contrast_enhancement_c_yuv_gpu(img_in);
     end = std::chrono::system_clock::now();
     elapsed_seconds = end-start;
-    std::cout<<"YUV Test took "<<elapsed_seconds.count()<<" seconds"<<std::endl;
-    write_ppm(img_obuf_yuv, "out_yuv_cpu.ppm");
+    std::cout<<"YUV Test took "<<elapsed_seconds.count()<<" seconds, including memory copy"<<std::endl;
+    write_ppm(img_obuf_yuv, "out_yuv_gpu.ppm");
     
     free_ppm(img_obuf_hsl);
     free_ppm(img_obuf_yuv);

@@ -62,7 +62,13 @@ void histogram_equalization(unsigned char *img_out, unsigned char *img_in,
 __global__ void histogram_gpu(int *hist_out, unsigned char *img_in, int img_size, int nbr_bin)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    hist_out[img_in[idx]]++;
+    __syncthreads();
+    if (idx<img_size){
+        if (img_in[idx]<nbr_bin){
+            atomicAdd(hist_out+img_in[idx], 1);
+        }
+    }
+    __syncthreads();
 }
 
 std::chrono::duration<double> histogram_equalization_gpu(unsigned char *img_out, unsigned char *img_in,
@@ -108,7 +114,7 @@ std::chrono::duration<double> histogram_equalization_gpu(unsigned char *img_out,
     
     start = std::chrono::system_clock::now();
     
-    int no_blocks = img_size*sizeof(unsigned char)/1024;
+    int no_blocks = img_size*sizeof(unsigned char)/1024+1;
     get_result_image<<<no_blocks,1024>>>(d_lut, d_img_out, d_img_in, img_size);
     
     end = std::chrono::system_clock::now();
