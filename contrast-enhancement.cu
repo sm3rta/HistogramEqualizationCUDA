@@ -162,11 +162,11 @@ PPM_IMG contrast_enhancement_c_yuv_gpu(PPM_IMG img_in)
     
     int no_blocks = yuv_med.w*yuv_med.h/1024+1;
 
-    histogram_gpu<<<no_blocks, 1, 256>>>(d_hist, d_yuv_med_y, yuv_med.h*yuv_med.w, 256);
+    histogram_gpu<<<no_blocks, 1024>>>(d_hist, d_yuv_med_y, yuv_med.h*yuv_med.w, 256);
     
     cudaMemcpy(h_hist, d_hist, 256*sizeof(int), cudaMemcpyDeviceToHost);
 
-    histogram_equalization_gpu(y_equ,yuv_med.img_y,h_hist,yuv_med.h * yuv_med.w, 256);
+    histogram_equalization_gpu(y_equ, yuv_med.img_y,h_hist,yuv_med.h * yuv_med.w, 256);
 
     free(yuv_med.img_y);
     yuv_med.img_y = y_equ;
@@ -200,7 +200,7 @@ PPM_IMG contrast_enhancement_c_hsl_gpu(PPM_IMG img_in)
     cudaMemcpy(d_hist, h_hist, 256*sizeof(int), cudaMemcpyHostToDevice);
     
     int no_blocks = hsl_med.height*hsl_med.width/1024+1;
-    histogram_gpu<<<hsl_med.height*hsl_med.width, 1024>>>(d_hist, d_hsl_med_l, hsl_med.height * hsl_med.width, 256);
+    histogram_gpu<<<no_blocks, 1024>>>(d_hist, d_hsl_med_l, hsl_med.height * hsl_med.width, 256);
     
     cudaMemcpy(h_hist, d_hist, 256*sizeof(int), cudaMemcpyDeviceToHost);
 

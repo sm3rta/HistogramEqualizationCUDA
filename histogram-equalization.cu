@@ -130,13 +130,14 @@ __global__ void get_result_image(int* lut, unsigned char *img_out,
 {
     /* Get the result image */
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (lut[img_in[i]] > 255)
-    {
-        img_out[i] = 255;
+    if (i<img_size){
+        if (lut[img_in[i]] > 255)
+        {
+            img_out[i] = 255;
+        }
+        else
+        {
+            img_out[i] = (unsigned char)lut[img_in[i]];
+        }
     }
-    else
-    {
-        img_out[i] = (unsigned char)lut[img_in[i]];
-    }
-
 }
